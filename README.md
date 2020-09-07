@@ -1,7 +1,7 @@
 # Ansible-up-and-running
 
 ## Vagrantfile
-vagrant is used to create virtual machines to teast on it locally
+vagrant is used to create virtual machines to test on it locally
 
 ## secrets.yml
 this file should include sample on data but it doesn't include the right keys
