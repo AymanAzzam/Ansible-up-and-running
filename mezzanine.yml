@@ -1,0 +1,196 @@
+- name: Deploy Mezzanine
+  hosts: web
+  vars:
+    user: "{{ ansible_ssh_user }}"
+    proj_name: mezzanine-example
+    venv_home: "{{ ansible_env.HOME }}"
+    venv_path: "{{ venv_home }}/{{ proj_name }}"
+    proj_dirname: project
+    proj_path: "{{ venv_path }}/{{ proj_dirname }}"
+
+    ##### this file is needed ######
+    reqs_path: requirements.txt
+    ##### very important to understand the next line #####
+    python: "{{ venv_path }}/bin/python" 
+    manage: "{{ python }} {{ proj_path }}/manage.py"
+
+    live_hostname: 192.168.33.10.xip.io
+    domains:
+      - 192.168.33.10.xip.io
+      - www.192.168.33.10.xip.io
+
+    ##### App Server Configuration #####
+    repo_url: git@github.com:lorin/mezzanine-example.git
+    app_port: 8000
+    locale: en_US.UTF-8
+    app_proj_name: mezzanine
+
+    ##### Web Server Configuration #####
+    conf_path: /etc/nginx/conf
+    tls_enabled: True
+
+    db_name: "{{ proj_name }}"
+    db_user: "{{ proj_name }}"
+    db_host: localhost
+    db_port: 5432
+
+  vars_files:
+    ##### this file is needed #####
+    - secrets.yml
+
+  tasks:
+    - name: install apt packages
+      apt: 
+        pkg: ['git', 'libjpeg-dev', 'memcached', 'nginx', 'postgresql', 'libpq-dev', 
+              'python3-psycopg2', 'python3.5', 'python3-setuptools', 'python3-dev', 'python3-pip', 'supervisor']
+        update_cache: yes 
+        cache_valid_time: 3600
+      become: True
+        ##### libpq-dev and python-psycopq2 are postgreSQL libraries, libjpeg-dev is jpeg library #####
+        ##### python-dev is needed to install setproctitle #####
+        #- python-dev
+        #- python-pip
+        #- python-setuptools
+        #- python-virtualenv
+
+    - name: install python3.5 on python3 command
+      become: True
+      command: update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.5 2
+
+    - name: set 3.5 version to python3 command
+      become: True
+      command: update-alternatives --set python3 /usr/bin/python3.5
+
+    - name: Upgrade pip
+      become: True
+      command: pip3 install --upgrade pip
+
+    - name: Install wheel for pip
+      become: True
+      command: pip3 install wheel
+
+    - name: check out the repo on the host
+      git: repo={{ repo_url }} dest={{ proj_path }} accept_hostkey=yes
+
+    ##### We need python-pip, python-virtualenv and python-setuptools to be on the host to be able to use pip module #####
+    ##### setproctitle is used in PostgreSQL to change the preocesses name #####
+    ##### gunicorn needs python version >= 3.4 #####
+    ##### gathering facts need at least python2 2.6 or python3 3.5 #####
+    ##### so to make gathering facts and guincorn both are working well we need at least python 3.5 on the hosts #####
+    - name: install python packages
+      become: True
+      ##### executable can't be used with virtualenv inside pip module. instead of excecutable, use virtualenv_python #####
+      pip: 
+        name: ['gunicorn', 'south', 'psycopg2', 'python-memcached']  
+        executable: pip3 
+        #virtualenv={{ venv_path }} #virtualenv_python=/usr/bin/python3.5 
+      
+    - name: install python packages test
+      become: True
+      pip: 
+        name: ['setproctitle', 'django-compressor']   
+        executable: pip3 
+        #virtualenv={{ venv_path }} #virtualenv_python=/usr/bin/python3.5 
+      
+    - name: install requirements.txt
+      pip: requirements={{ proj_path }}/{{ reqs_path }} #virtualenv={{ venv_path }}
+
+    ####### DataBase Configuration ############
+    - name: create a user
+      postgresql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_pass }}"
+      become: True
+      become_user: postgres
+
+    - name: create the database
+      postgresql_db:
+        name: "{{ db_name }}"
+        owner: "{{ db_user }}"
+        encoding: UTF8
+        lc_ctype: "{{ locale }}"
+        lc_collate: "{{ locale }}"
+        template: template0
+      become: True
+      become_user: postgres
+
+    ##### For the Django Application to connect to database ######
+    - name: generate the settings file
+      template: src=templates/local_settings.py.j2 dest={{ proj_path }}/local_settings.py
+
+    - name: intialize the database (syncdb, migrate, collectstatic)
+      django_manage:
+        command: "{{ item }}"
+        app_path: "{{ proj_path }}"
+        #virtualenv: "{{ venv_path }}"
+      with_items:
+        - syncdb
+        - migrate
+        - collectstatic
+
+    ###### Running Python Scripts on the Apllication for Django #######
+    - name: set the site id
+      script: scripts/setsite.py
+      environment:
+        PATH: "{{ venv_path }}/bin"
+        PROJECT_DIR: "{{ proj_path }}"
+        WEBSITE_DOMAIN: "{{ live_hostname }}"
+
+    - name: set the admin password
+      script: scripts/setadmin.py
+      environment:
+        PATH: "{{ venv_path }}/bin"
+        PROJECT_DIR: "{{ proj_path }}"
+        ADMIN_PASSWORD: "{{ admin_pass }}"
+
+    ##### Set Configuration for Gunicorn, Supervisor and Nginx #######
+    - name: set the gunicorn conf file
+      template: src=templates/gunicorn.conf.py.j2 dest={{ proj_path }}/gunicorn.conf.py
+
+    - name: set the supervisor conf file
+      template: src=templates/supervisor.conf.j2 dest=/etc/supervisor/conf.d/mezzanine.conf
+      become: True
+
+    - name: set the nginx conf file
+      template: src=templates/nginx.conf.j2 dest=/etc/nginx/sites-available/mezzanine.conf
+      become: True
+
+    ##### Enable the Nginx Config File ######
+    - name: enable the Nginx config file
+      file:
+        src: /etc/nginx/sites-available/mezzanine.conf
+        dest: /etc/nginx/sites-enabled/mezzanine.conf
+        state: link
+
+    ##### Remove the Default Config File for Nginx #####
+    - name: remove the default Nginx file
+      file: path=/etc/nginx/sites-enabled/default state=absent
+
+    ##### Installing TLS Certificates for Nginx #####
+    - name: ensure config path exists for Nginx
+      file: path={{ conf_path }} state=directory
+      become: True
+      when: tls_enabled
+
+    - name: Create TLS certificate for Nginx
+      ##### chdir for the directory where the TLS will be created ######
+      command: >
+        openssl req -new -x509 -nodes -out {{ proj_name }}.crt
+        -keyout {{ proj_name }}.key -subj '/CN={{ domains[0] }}' -days 3650
+        chdir={{ conf_path }}
+        creates={{ conf_path }}/{{ proj_name }}.crt
+      become: True
+      when: tls_enabled
+
+    ##### Install Twitter Cron Job related to the Application server #####
+    - name: Install poll twitter cron job to run every 5 minutes
+      cron: name="poll twitter" minute="*/5" user={{ user }} job="{{ manage }} poll_twitter"
+
+    ##### restart Supervisor and Nginx ######
+    - name: restart supervisor
+      supervisorctl: name=gunicorn_mezzanine state=restarted
+      become: True
+
+    - name: restart nginx
+      service: name=nginx state=restarted
+      become: True
