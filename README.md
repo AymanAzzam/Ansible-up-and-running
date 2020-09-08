@@ -1,4 +1,5 @@
 # Ansible-up-and-running
+my ansible version is 2.9.12
 
 ## Vagrantfile
 vagrant is used to create virtual machines to test on it locally
