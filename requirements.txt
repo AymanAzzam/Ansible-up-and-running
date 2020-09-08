@@ -1,1 +1,2 @@
-Mezzanine = 3.1.10
+#Django = 2.2.16
+Mezzanine = 4.3.1

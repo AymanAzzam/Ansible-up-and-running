@@ -16,4 +16,4 @@ $ ssh-add ~/.ssh/id_rsa
 [how to create ssh key, adding it to ssh-agent and github (to solve public key permission denied error)](https://docs.github.com/en/github/authenticating-to-github/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent#generating-a-new-ssh-key).
 
 ### Problems
-It fails in TASK [install python packages test]
+It fails in TASK [intialize the database (syncdb, migrate, collectstatic)]
