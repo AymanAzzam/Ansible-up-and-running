@@ -7,7 +7,7 @@ vagrant is used to create virtual machines to test on it locally
 this file should include sample on data but it doesn't include the right keys
 
 ## Important Notes
-you need to run the following command each time you start a new ssh-agent to be able to use *git* inside ansible where id_rsa includes the ssh key for your github account. See the Useful Links for more details.
+you need to run the following command each time you start a new ssh-agent to be able to use **git module** inside ansible where id_rsa includes the ssh key for your github account. See the Useful Links for more details.
 ```sh
 $ ssh-add ~/.ssh/id_rsa
 ```
