@@ -1,2 +1,7 @@
 #Django = 2.2.16
 Mezzanine = 4.3.1
+gunicorn = 20.0.4
+south = 1.0.2
+psycopg2 = 2.8.6
+python-memcached = 1.59
+setproctitle = 1.1.10

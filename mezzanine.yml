@@ -50,7 +50,7 @@
       become: True
       apt: 
         pkg: ['git', 'libjpeg-dev', 'memcached', 'nginx', 'postgresql', 'libpq-dev', 'supervisor',
-              'python3.5', 'python-psycopg2', 'python3-setuptools', 'python3.5-dev', 'python3-pip', 'python-virtualenv']
+              'python3.5', 'python3-pip', 'python-psycopg2', 'python3-setuptools', 'python3.5-dev', 'python-virtualenv']
         update_cache: yes 
         cache_valid_time: 3600
         ##### libpq-dev and python-psycopq2 are postgreSQL libraries, libjpeg-dev is jpeg library #####
@@ -80,19 +80,6 @@
     - name: check out the repo on the host
       git: repo={{ repo_url }} dest={{ proj_path }} accept_hostkey=yes
 
-    ##### We need python-pip, python-virtualenv and python-setuptools to be on the host to be able to use pip module #####
-    ##### setproctitle is used in PostgreSQL to change the preocesses name #####
-    ##### gunicorn needs python version >= 3.4 #####
-    ##### gathering facts need at least python2 2.6 or python3 3.5 #####
-    ##### so to make gathering facts and guincorn both are working well we need at least python 3.5 on the hosts #####
-    - name: install python packages
-      become: True
-      ##### executable can't be used with virtualenv inside pip module. instead of excecutable, use virtualenv_python #####
-      pip: 
-        name: ['gunicorn', 'south', 'psycopg2', 'python-memcached', 'setproctitle']  
-        executable: pip3 
-        #virtualenv={{ venv_path }} #virtualenv_python=/usr/bin/python3.5 
-
     #- name: install python packages (django-compressor)
     #  become: True
     #  pip: 
@@ -101,10 +88,18 @@
     #    extra_args: "--ignore-installed six" # to solve error where it can't uninstall previous six
         #virtualenv={{ venv_path }} #virtualenv_python=/usr/bin/python3.5 
       
-    - name: install requirements.txt
+    
+    ##### We need python-pip, python-virtualenv and python-setuptools to be on the host to be able to use pip module #####
+    ##### setproctitle is used in PostgreSQL to change the preocesses name #####
+    ##### gunicorn needs python version >= 3.4 #####
+    ##### gathering facts need at least python2 2.6 or python3 3.5 #####
+    ##### so to make gathering facts and guincorn both are working well we need at least python 3.5 on the hosts #####
+    - name: install python packages from requirements.txt
+      become: True
       pip: 
         requirements: "{{ proj_path }}/{{ reqs_path }}" #virtualenv={{ venv_path }}
         executable: pip3 
+        extra_args: "--ignore-installed six" # to solve error where it can't uninstall previous six
 
     ####### DataBase Configuration ############
     - name: create a user
