@@ -17,4 +17,6 @@ $ ssh-add ~/.ssh/id_rsa
 [how to create ssh key, adding it to ssh-agent and github (to solve public key permission denied error)](https://docs.github.com/en/github/authenticating-to-github/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent#generating-a-new-ssh-key).
 
 ### Problems
-It fails in TASK [intialize the database (syncdb, migrate, collectstatic)]
+1. It fails in TASK [intialize the database (syncdb, migrate, collectstatic)]
+2. I stopped developing this project because the application(Mezzanine using Django) is very old and it uses features that are not supported in Django anymore.
+3. I don't know the versions for Django/Python/Mezzanine/ that is used to develop the application and it's very hard to discover it.
